@@ -18,9 +18,35 @@
 	#size-cells = <2>;
 
 	aliases {
-		mmc0 = &sd_emmc_b; /* SD card */
-		mmc1 = &sd_emmc_c; /* eMMC */
-		mmc2 = &sd_emmc_a; /* SDIO */
+		mmc0 = &sd_emmc_a; /* SDIO */
+		mmc1 = &sd_emmc_b; /* SDCARD */
+		mmc2 = &sd_emmc_c; /* EMMC */
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		simplefb_cvbs: framebuffer-cvbs {
+			compatible = "amlogic,simple-framebuffer",
+				     "simple-framebuffer";
+			amlogic,pipeline = "vpu-cvbs";
+			clocks = <&clkc CLKID_HDMI>,
+				 <&clkc CLKID_HTX_PCLK>,
+				 <&clkc CLKID_VPU_INTR>;
+			status = "disabled";
+		};
+
+		simplefb_hdmi: framebuffer-hdmi {
+			compatible = "amlogic,simple-framebuffer",
+				    "simple-framebuffer";
+			amlogic,pipeline = "vpu-hdmi";
+			clocks = <&clkc CLKID_HDMI>,
+				 <&clkc CLKID_HTX_PCLK>,
+				 <&clkc CLKID_VPU_INTR>;
+			status = "disabled";
+		};
 	};
 
 	efuse: efuse {
@@ -29,6 +55,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		read-only;
+		secure-monitor = <&sm>;
 	};
 
 	psci {
@@ -41,21 +68,28 @@
 		#size-cells = <2>;
 		ranges;
 
-		/* 3 MiB reserved for ARM Trusted Firmware (BL31) */
-		secmon_reserved: secmon@5000000 {
-			reg = <0x0 0x05000000 0x0 0x300000>;
-			no-map;
-		};
+                /* 2 MiB reserved for ARM Trusted Firmware (BL31) */
+                secmon_reserved: secmon@10000000 {
+                        reg = <0x0 0x10000000 0x0 0x200000>;
+                        no-map;
+                };
 
-		/* 32 MiB reserved for ARM Trusted Firmware (BL32) */
-		secmon_reserved_bl32: secmon@5300000 {
-			reg = <0x0 0x05300000 0x0 0x2000000>;
-			no-map;
-		};
+                /* 3 MiB reserved for ARM Trusted Firmware (BL31) */
+                secmon_reserved_alt: secmon@5000000 {
+                        reg = <0x0 0x05000000 0x0 0x300000>;
+                        no-map;
+                };
+
+                /* 32 MiB reserved for ARM Trusted Firmware (BL32) */
+                secmon_reserved_bl32: secmon@5300000 {
+                        reg = <0x0 0x05300000 0x0 0x2000000>;
+                        no-map;
+                };
 
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
+			//size = <0x0 0x38000000>;
 			size = <0x0 0x10000000>;
 			alignment = <0x0 0x400000>;
 			linux,cma-default;
@@ -75,6 +109,39 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		pcie: pcie@fc000000 {
+			compatible = "amlogic,g12a-pcie", "snps,dw-pcie";
+			reg = <0x0 0xfc000000 0x0 0x400000
+			       0x0 0xff648000 0x0 0x2000
+			       0x0 0xfc400000 0x0 0x200000>;
+			reg-names = "elbi", "cfg", "config";
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+			bus-range = <0x0 0xff>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+			ranges = <0x81000000 0 0 0x0 0xfc600000 0 0x00100000
+				  0x82000000 0 0xfc700000 0x0 0xfc700000 0 0x1900000>;
+
+			clocks = <&clkc CLKID_PCIE_PHY
+				  &clkc CLKID_PCIE_COMB
+				  &clkc CLKID_PCIE_PLL>;
+			clock-names = "general",
+				      "pclk",
+				      "port";
+			resets = <&reset RESET_PCIE_CTRL_A>,
+				 <&reset RESET_PCIE_APB>;
+			reset-names = "port",
+				      "apb";
+			num-lanes = <1>;
+			phys = <&usb3_pcie_phy PHY_TYPE_PCIE>;
+			phy-names = "pcie";
+			status = "disabled";
+		};
 
 		thermal-zones {
 			cpu_thermal: cpu-thermal {
@@ -132,7 +199,7 @@
 		};
 
 		ethmac: ethernet@ff3f0000 {
-			compatible = "amlogic,meson-axg-dwmac",
+			compatible = "amlogic,meson-g12a-dwmac",
 				     "snps,dwmac-3.70a",
 				     "snps,dwmac";
 			reg = <0x0 0xff3f0000 0x0 0x10000>,
@@ -273,6 +340,50 @@
 							groups = "emmc_clk";
 							function = "emmc";
 							bias-disable;
+							drive-strength-microamp = <4000>;
+						};
+					};
+
+					emmc_ctrl_pins: emmc-ctrl {
+						mux-0 {
+							groups = "emmc_cmd";
+							function = "emmc";
+							bias-pull-up;
+							drive-strength-microamp = <4000>;
+						};
+
+						mux-1 {
+							groups = "emmc_clk";
+							function = "emmc";
+							bias-disable;
+							drive-strength-microamp = <4000>;
+						};
+					};
+
+					emmc_data_4b_pins: emmc-data-4b {
+						mux-0 {
+							groups = "emmc_nand_d0",
+								 "emmc_nand_d1",
+								 "emmc_nand_d2",
+								 "emmc_nand_d3";
+							function = "emmc";
+							bias-pull-up;
+							drive-strength-microamp = <4000>;
+						};
+					};
+
+					emmc_data_8b_pins: emmc-data-8b {
+						mux-0 {
+							groups = "emmc_nand_d0",
+								 "emmc_nand_d1",
+								 "emmc_nand_d2",
+								 "emmc_nand_d3",
+								 "emmc_nand_d4",
+								 "emmc_nand_d5",
+								 "emmc_nand_d6",
+								 "emmc_nand_d7";
+							function = "emmc";
+							bias-pull-up;
 							drive-strength-microamp = <4000>;
 						};
 					};
@@ -911,57 +1022,6 @@
 							groups = "spdif_out_a13";
 							function = "spdif_out";
 							drive-strength-microamp = <500>;
-							bias-disable;
-						};
-					};
-
-					spicc0_x_pins: spicc0-x {
-						mux {
-							groups = "spi0_mosi_x",
-							       "spi0_miso_x",
-							       "spi0_clk_x";
-							function = "spi0";
-							drive-strength-microamp = <4000>;
-							bias-disable;
-						};
-					};
-
-					spicc0_ss0_x_pins: spicc0-ss0-x {
-						mux {
-							groups = "spi0_ss0_x";
-							function = "spi0";
-							drive-strength-microamp = <4000>;
-							bias-disable;
-						};
-					};
-
-					spicc0_c_pins: spicc0-c {
-						mux {
-							groups = "spi0_mosi_c",
-							       "spi0_miso_c",
-							       "spi0_ss0_c",
-							       "spi0_clk_c";
-							function = "spi0";
-							drive-strength-microamp = <4000>;
-							bias-disable;
-						};
-					};
-
-					spicc1_pins: spicc1 {
-						mux {
-							groups = "spi1_mosi",
-							       "spi1_miso",
-							       "spi1_clk";
-							function = "spi1";
-							drive-strength-microamp = <4000>;
-						};
-					};
-
-					spicc1_ss0_pins: spicc1-ss0 {
-						mux {
-							groups = "spi1_ss0";
-							function = "spi1";
-							drive-strength-microamp = <4000>;
 							bias-disable;
 						};
 					};
@@ -1796,7 +1856,7 @@
 							groups = "uart_ao_a_tx",
 								 "uart_ao_a_rx";
 							function = "uart_ao_a";
-							bias-disable;
+							bias-pull-up;
 						};
 					};
 
@@ -1805,7 +1865,7 @@
 							groups = "uart_ao_a_cts",
 								 "uart_ao_a_rts";
 							function = "uart_ao_a";
-							bias-disable;
+							bias-pull-up;
 						};
 					};
 
@@ -1908,7 +1968,6 @@
 				interrupts = <GIC_SPI 203 IRQ_TYPE_EDGE_RISING>;
 				clocks = <&clkc_AO CLKID_AO_CTS_OSCIN>;
 				clock-names = "oscin";
-				amlogic,ao-sysctrl = <&rti>;
 				status = "disabled";
 			};
 
@@ -2061,28 +2120,10 @@
 				amlogic,channel-interrupts = <64 65 66 67 68 69 70 71>;
 			};
 
-			spicc0: spi@13000 {
-				compatible = "amlogic,meson-g12a-spicc";
-				reg = <0x0 0x13000 0x0 0x44>;
-				interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clkc CLKID_SPICC0>,
-					 <&clkc CLKID_SPICC0_SCLK>;
-				clock-names = "core", "pclk";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				status = "disabled";
-			};
-
-			spicc1: spi@15000 {
-				compatible = "amlogic,meson-g12a-spicc";
-				reg = <0x0 0x15000 0x0 0x44>;
-				interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clkc CLKID_SPICC1>,
-					 <&clkc CLKID_SPICC1_SCLK>;
-				clock-names = "core", "pclk";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				status = "disabled";
+			watchdog: wdt@f0d0 {
+				compatible = "amlogic,meson-gxbb-wdt";
+				reg = <0x0 0xf0d0 0x0 0x10>;
+				clocks = <&xtal>;
 			};
 
 			pwm_ef: pwm@19000 {
@@ -2262,10 +2303,10 @@
 			compatible = "amlogic,meson-g12a-mali", "arm,mali-bifrost";
 			reg = <0x0 0xffe40000 0x0 0x40000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>,
+			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "gpu", "mmu", "job";
+				     <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "job", "mmu", "gpu";
 			clocks = <&clkc CLKID_MALI>;
 			resets = <&reset RESET_DVALIN_CAPB3>, <&reset RESET_DVALIN>;
 

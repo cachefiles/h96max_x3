@@ -99,7 +99,6 @@
 		opp-1200000000 {
 			opp-hz = /bits/ 64 <1200000000>;
 			opp-microvolt = <780000>;
-			opp-suspend;
 		};
 
 		opp-1404000000 {
@@ -447,12 +446,24 @@
 		     "amlogic,meson-gpio-intc";
 };
 
+&pcie {
+	power-domains = <&pwrc PWRC_SM1_PCIE_ID>;
+};
+
 &pwrc {
 	compatible = "amlogic,meson-sm1-pwrc";
 };
 
+&simplefb_cvbs {
+	power-domains = <&pwrc PWRC_SM1_VPU_ID>;
+};
+
+&simplefb_hdmi {
+	power-domains = <&pwrc PWRC_SM1_VPU_ID>;
+};
+
 &vdec {
-	compatible = "amlogic,sm1-vdec";
+        compatible = "amlogic,sm1-vdec";
 };
 
 &vpu {
