@@ -533,3 +533,4 @@ dhd_static_buf_exit(void)
 module_init(dhd_static_buf_init);
 
 module_exit(dhd_static_buf_exit);
+MODULE_LICENSE("GPL");

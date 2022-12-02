@@ -42,6 +42,12 @@ dhd_wlan_set_power(int on
 				return -EIO;
 			}
 		}
+
+#ifdef BCMSDIO
+		mdelay(200);
+		mdelay(200);
+#endif
+
 #if defined(BUS_POWER_RESTORE)
 #if defined(BCMSDIO)
 		if (adapter->sdio_func && adapter->sdio_func->card && adapter->sdio_func->card->host) {
@@ -277,6 +283,9 @@ int dhd_wlan_init_gpio(void)
 			return -1;
 		}
 	}
+
+	// host_oob_irq = INT_GPIO_4;
+	host_oob_irq = 59;
 
 #ifdef HW_OOB
 #ifdef HW_OOB_LOW_LEVEL

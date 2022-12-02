@@ -6957,7 +6957,7 @@ wl_cfg80211_suspend(struct wiphy *wiphy)
 	struct net_device *ndev = bcmcfg_to_prmry_ndev(cfg);
 	unsigned long flags;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 #endif
 
 	if (unlikely(!wl_get_drv_status(cfg, READY, ndev))) {
@@ -11745,7 +11745,7 @@ wl_notify_connect_status_ap(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
 	channel_info_t ci;
 #else
-	struct station_info sinfo;
+	struct station_info sinfo = {};
 #endif 
 
 	WL_DBG(("event %d status %d reason %d\n", event, ntoh32(e->status), reason));
