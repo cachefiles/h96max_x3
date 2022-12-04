@@ -514,19 +514,19 @@ static s32 wl_cfg80211_get_tx_power(struct wiphy *wiphy,
 static s32 wl_cfg80211_get_tx_power(struct wiphy *wiphy, s32 *dbm);
 #endif /* WL_CFG80211_P2P_DEV_IF */
 static s32 wl_cfg80211_config_default_key(struct wiphy *wiphy,
-	struct net_device *dev,
+	struct net_device *dev, int todo,
 	u8 key_idx, bool unicast, bool multicast);
-static s32 wl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+static s32 wl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr,
 	struct key_params *params);
-static s32 wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
+static s32 wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr);
-static s32 wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev,
+static s32 wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr,
 	void *cookie, void (*callback) (void *cookie,
 	struct key_params *params));
 static s32 wl_cfg80211_config_default_mgmt_key(struct wiphy *wiphy,
-	struct net_device *dev,	u8 key_idx);
+	struct net_device *dev,	int todo, u8 key_idx);
 static s32 wl_cfg80211_resume(struct wiphy *wiphy);
 #if defined(WL_SUPPORT_BACKPORTED_KPATCHES) || (LINUX_VERSION_CODE >= KERNEL_VERSION(3, \
 	2, 0))
@@ -6047,7 +6047,7 @@ wl_cfg80211_get_tx_power(struct wiphy *wiphy, s32 *dbm)
 }
 
 static s32
-wl_cfg80211_config_default_key(struct wiphy *wiphy, struct net_device *dev,
+wl_cfg80211_config_default_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool unicast, bool multicast)
 {
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
@@ -6316,7 +6316,7 @@ wl_cfg80211_block_arp(struct net_device *dev, int enable)
 #endif /* defined (WL_VIRTUAL_APSTA) */
 
 static s32
-wl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+wl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr,
 	struct key_params *params)
 {
@@ -6447,7 +6447,7 @@ exit:
 }
 
 static s32
-wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
+wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr)
 {
 	struct wl_wsec_key key;
@@ -6493,7 +6493,7 @@ wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static s32
-wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev,
+wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev, int todo,
 	u8 key_idx, bool pairwise, const u8 *mac_addr, void *cookie,
 	void (*callback) (void *cookie, struct key_params * params))
 {
@@ -6566,7 +6566,7 @@ wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 
 static s32
 wl_cfg80211_config_default_mgmt_key(struct wiphy *wiphy,
-	struct net_device *dev, u8 key_idx)
+	struct net_device *dev, int todo, u8 key_idx)
 {
 #ifdef MFP
 	return 0;
