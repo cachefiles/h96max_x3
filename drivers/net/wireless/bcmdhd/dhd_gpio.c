@@ -278,7 +278,7 @@ int dhd_wlan_init_gpio(void)
 		}
 	}
 
-	host_oob_irq = 59;
+        host_oob_irq = 59;
 #ifdef HW_OOB
 #ifdef HW_OOB_LOW_LEVEL
 	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL | IORESOURCE_IRQ_SHAREABLE;

@@ -624,7 +624,9 @@ s32 wl_cfg80211_interface_ops(struct bcm_cfg80211 *cfg,
 s32 wl_cfg80211_add_del_bss(struct bcm_cfg80211 *cfg,
 	struct net_device *ndev, s32 bsscfg_idx,
 	enum nl80211_iftype iface_type, s32 del, u8 *addr);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+static s32 wl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *dev, unsigned int link_id);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
 static s32 wl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *dev);
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0) */
 #ifdef GTK_OFFLOAD_SUPPORT
@@ -3746,7 +3748,7 @@ wl_cfg80211_interface_ops(struct bcm_cfg80211 *cfg,
 	struct net_device *ndev, s32 bsscfg_idx,
 	enum nl80211_iftype iface_type, s32 del, u8 *addr)
 {
-	wl_interface_create_t iface;
+	wl_interface_create_t iface ={};
 	s32 ret;
 	wl_interface_info_t *info;
 
@@ -4214,7 +4216,7 @@ wl_cfg80211_post_ifcreate(struct net_device *ndev,
 			WL_ERR(("set cur_etheraddr Error (%d)\n", ret));
 			goto fail;
 		}
-		memcpy(new_ndev->dev_addr, addr, ETH_ALEN);
+		memcpy((void *)(new_ndev->dev_addr), addr, ETH_ALEN);
 		WL_ERR(("Applying updated mac address to firmware\n"));
 	}
 
@@ -4674,9 +4676,9 @@ wl_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	struct cfg80211_bss *bss;
 	struct ieee80211_channel *chan;
-	struct wl_join_params join_params;
+	struct wl_join_params join_params = {};
 	int scan_suppress;
-	struct cfg80211_ssid ssid= {};
+	struct cfg80211_ssid ssid = {};
 	s32 scan_retry = 0;
 	s32 err = 0;
 	size_t join_params_size;
@@ -9948,7 +9950,14 @@ wl_cfg80211_start_ap(
 		goto fail;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+	if ((err = wl_cfg80211_set_channel(wiphy, dev,
+		dev->ieee80211_ptr->u.ap.preset_chandef.chan,
+		NL80211_CHAN_HT20) < 0)) {
+		WL_ERR(("Set channel failed \n"));
+		goto fail;
+	}
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 	if ((err = wl_cfg80211_set_channel(wiphy, dev,
 		dev->ieee80211_ptr->preset_chandef.chan,
 		NL80211_CHAN_HT20) < 0)) {
@@ -10049,7 +10058,11 @@ wl_cfg80211_start_ap(
 fail:
 	if (err) {
 		WL_ERR(("ADD/SET beacon failed\n"));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+		wl_cfg80211_stop_ap(wiphy, dev, 0);
+#else
 		wl_cfg80211_stop_ap(wiphy, dev);
+#endif
 		if (dev_role == NL80211_IFTYPE_AP) {
 			dhd->op_mode &= ~DHD_FLAG_HOSTAP_MODE;
 #ifdef PKT_FILTER_SUPPORT
@@ -10080,9 +10093,16 @@ fail:
 }
 
 static s32
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+wl_cfg80211_stop_ap(
+	struct wiphy *wiphy,
+	struct net_device *dev,
+	unsigned int link_id)
+#else
 wl_cfg80211_stop_ap(
 	struct wiphy *wiphy,
 	struct net_device *dev)
+#endif
 {
 	int err = 0;
 	u32 dev_role = 0;
@@ -10977,6 +10997,56 @@ s32 wl_mode_to_nl80211_iftype(s32 mode)
 	return err;
 }
 
+static void wl_copy_regd(const struct ieee80211_regdomain *regd_orig,
+	struct ieee80211_regdomain *regd_copy)
+{
+	int i;
+
+	memcpy(regd_copy, regd_orig, sizeof(*regd_orig));
+
+	for (i = 0; i < regd_orig->n_reg_rules; i++) {
+		memcpy(&regd_copy->reg_rules[i], &regd_orig->reg_rules[i],
+			sizeof(regd_orig->reg_rules[i]));
+	}
+}
+
+static void wl_notify_regd(struct wiphy *wiphy, char *country_code)
+{
+	struct ieee80211_regdomain *regd_copy = NULL;
+	int regd_len;
+
+	regd_len = sizeof(brcm_regdom) + (brcm_regdom.n_reg_rules *
+		sizeof(struct ieee80211_reg_rule));
+
+	regd_copy = (struct ieee80211_regdomain *)kmalloc(regd_len, GFP_KERNEL);
+	if (!regd_copy) {
+		WL_ERR(("failed to alloc regd_copy\n"));
+		return;
+	}
+
+	/* the upper layer function below requires non-const type */
+	wl_copy_regd(&brcm_regdom, regd_copy);
+
+	if (country_code) {
+		memcpy(regd_copy->alpha2, country_code, sizeof(regd_copy->alpha2));
+	}
+
+	if (rtnl_is_locked()) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0))
+		wiphy_lock(wiphy);
+		regulatory_set_wiphy_regd_sync(wiphy, regd_copy);
+		wiphy_unlock(wiphy);
+#else
+		regulatory_set_wiphy_regd_sync_rtnl(wiphy, regd_copy);
+#endif /* LINUX_VERSION > 5.12.0 */
+	} else {
+		regulatory_set_wiphy_regd(wiphy, regd_copy);
+	}
+
+	kfree(regd_copy);
+	return;
+}
+
 #ifdef CONFIG_CFG80211_INTERNAL_REGDB
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0))
 #define WL_CFG80211_REG_NOTIFIER() static int wl_cfg80211_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
@@ -11228,12 +11298,14 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
 #endif /* CONFIG_PM && WL_CFG80211_P2P_DEV_IF */
 
 	WL_DBG(("Registering custom regulatory)\n"));
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
+	wdev->wiphy->regulatory_flags |= REGULATORY_WIPHY_SELF_MANAGED;
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 	wdev->wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
 #else
 	wdev->wiphy->flags |= WIPHY_FLAG_CUSTOM_REGULATORY;
 #endif
-	wiphy_apply_custom_regulatory(wdev->wiphy, &brcm_regdom);
+	wl_notify_regd(wdev->wiphy, NULL);
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(WL_VENDOR_EXT_SUPPORT)
 	WL_ERR(("Registering Vendor80211\n"));
@@ -13339,7 +13411,14 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		MAC2STRDBG((const u8*)(&e->addr)), *channel);
 	wl_cfg80211_check_in4way(cfg, ndev, 0, WL_EXT_STATUS_CONNECTED, NULL);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+	roam_info.links[0].channel = notify_channel;
+	roam_info.links[0].bssid = curbssid;
+	roam_info.req_ie = conn_info->req_ie;
+	roam_info.req_ie_len = conn_info->req_ie_len;
+	roam_info.resp_ie = conn_info->resp_ie;
+	roam_info.resp_ie_len = conn_info->resp_ie_len;
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
 	roam_info.channel = notify_channel;
 	roam_info.bssid = curbssid;
 	roam_info.req_ie = conn_info->req_ie;
@@ -16916,7 +16995,7 @@ static s32 __wl_update_wiphybands(struct bcm_cfg80211 *cfg, bool notify)
 	}
 
 	if (notify)
-		wiphy_apply_custom_regulatory(wiphy, &brcm_regdom);
+		wl_notify_regd(wiphy, NULL);
 
 	return 0;
 }
@@ -17782,7 +17861,7 @@ wl_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *dev,
 	s32 ret = 0;
 #ifdef WLTDLS
 	struct bcm_cfg80211 *cfg;
-	tdls_wfd_ie_iovar_t info;
+	tdls_wfd_ie_iovar_t info = {};
 	memset(&info, 0, sizeof(tdls_wfd_ie_iovar_t));
 	cfg = wl_get_cfg(dev);
 
@@ -17845,7 +17924,7 @@ wl_cfg80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
 	s32 ret = 0;
 #ifdef WLTDLS
 	struct bcm_cfg80211 *cfg = wl_get_cfg(dev);
-	tdls_iovar_t info;
+	tdls_iovar_t info = {};
 	dhd_pub_t *dhdp;
 	bool tdls_auto_mode = false;
 	dhdp = (dhd_pub_t *)(cfg->pub);
@@ -20286,7 +20365,10 @@ wl_cfg80211_ch_switch_notify(struct net_device *dev, uint16 chanspec, struct wip
 		WL_ERR(("chspec_chandef failed\n"));
 		return;
 	}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 8, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION (5, 15, 41))
+	freq = chandef.chan ? chandef.chan->center_freq : chandef.center_freq1;
+	cfg80211_ch_switch_notify(dev, &chandef, 0);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 8, 0))
 	freq = chandef.chan ? chandef.chan->center_freq : chandef.center_freq1;
 	cfg80211_ch_switch_notify(dev, &chandef);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 5, 0) && (LINUX_VERSION_CODE <= (3, 7, 0)))

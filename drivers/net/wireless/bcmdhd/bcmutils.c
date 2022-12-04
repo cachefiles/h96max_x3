@@ -30,7 +30,7 @@
 #include <bcm_cfg.h>
 #include <typedefs.h>
 #include <bcmdefs.h>
-#include <stdarg.h>
+#include <linux/stdarg.h>
 #ifdef BCMDRIVER
 
 #include <osl.h>
@@ -3282,7 +3282,8 @@ bcm_mwbmap_audit(struct bcm_mwbmap * mwbmap_hdl)
 		}
 	}
 
-	ASSERT((int)free_cnt == mwbmap_p->ifree);
+	if ((int)free_cnt != mwbmap_p->ifree)
+		ASSERT((int)free_cnt == mwbmap_p->ifree);
 }
 /* END : Multiword bitmap based 64bit to Unique 32bit Id allocator. */
 

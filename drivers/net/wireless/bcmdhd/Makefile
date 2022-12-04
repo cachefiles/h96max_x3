@@ -137,7 +137,7 @@ ifeq ($(CONFIG_DHD_USE_STATIC_BUF),y)
 	DHDCFLAGS += -DDHD_USE_STATIC_MEMDUMP -DCONFIG_DHD_USE_STATIC_BUF
 endif
 
-ifneq ($(CONFIG_WIRELESS_EXT),)
+ifneq ($(CONFIG_BCMDHD_WEXT),)
 	DHDOFILES += wl_iw.o wl_escan.o
 	DHDCFLAGS += -DSOFTAP -DWL_WIRELESS_EXT -DUSE_IW -DWL_ESCAN
 endif
@@ -163,3 +163,4 @@ EXTRA_LDFLAGS += --strip-debug
 endif
 
 ccflags-y += -I$(srctree)/drivers/net/wireless/bcmdhd -I$(srctree)/drivers/net/wireless/bcmdhd/include
+ccflags-y += $(call cc-disable-warning, implicit-fallthrough)
