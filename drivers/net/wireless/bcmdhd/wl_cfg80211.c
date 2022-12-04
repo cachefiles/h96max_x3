@@ -4676,7 +4676,7 @@ wl_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	struct ieee80211_channel *chan;
 	struct wl_join_params join_params;
 	int scan_suppress;
-	struct cfg80211_ssid ssid;
+	struct cfg80211_ssid ssid= {};
 	s32 scan_retry = 0;
 	s32 err = 0;
 	size_t join_params_size;
@@ -6957,7 +6957,7 @@ wl_cfg80211_suspend(struct wiphy *wiphy)
 	struct net_device *ndev = bcmcfg_to_prmry_ndev(cfg);
 	unsigned long flags;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 #endif
 
 	if (unlikely(!wl_get_drv_status(cfg, READY, ndev))) {
@@ -8138,20 +8138,12 @@ exit:
 	return err;
 }
 
-
-static void
-wl_cfg80211_mgmt_frame_register(struct wiphy *wiphy, bcm_struct_cfgdev *cfgdev,
-	u16 frame, bool reg)
+static void wl_cfg80211_update_mgmt_frame_registrations(struct wiphy *wiphy,
+	struct wireless_dev *wdev, struct mgmt_frame_regs *upd)
 {
-
-	WL_DBG(("frame_type: %x, reg: %d\n", frame, reg));
-
-	if (frame != (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_PROBE_REQ))
-		return;
-
+	WL_DBG(("%s\n", __func__));
 	return;
 }
-
 
 static s32
 wl_cfg80211_change_bss(struct wiphy *wiphy,
@@ -10918,7 +10910,7 @@ static struct cfg80211_ops wl_cfg80211_ops = {
 	.remain_on_channel = wl_cfg80211_remain_on_channel,
 	.cancel_remain_on_channel = wl_cfg80211_cancel_remain_on_channel,
 	.mgmt_tx = wl_cfg80211_mgmt_tx,
-	.mgmt_frame_register = wl_cfg80211_mgmt_frame_register,
+	.update_mgmt_frame_registrations = wl_cfg80211_update_mgmt_frame_registrations,
 	.change_bss = wl_cfg80211_change_bss,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0))
 	.set_channel = wl_cfg80211_set_channel,
@@ -11745,7 +11737,7 @@ wl_notify_connect_status_ap(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
 	channel_info_t ci;
 #else
-	struct station_info sinfo;
+	struct station_info sinfo = {};
 #endif 
 
 	WL_DBG(("event %d status %d reason %d\n", event, ntoh32(e->status), reason));
@@ -13736,7 +13728,7 @@ wl_notify_scan_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	s32 err = 0;
 	unsigned long flags;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 #endif
 
 	WL_DBG(("Enter \n"));
@@ -14947,7 +14939,7 @@ static s32 wl_notify_escan_complete(struct bcm_cfg80211 *cfg,
 	struct net_device *dev;
 	dhd_pub_t *dhdp = (dhd_pub_t *)(cfg->pub);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 	info.aborted = aborted;
 #endif
 
@@ -17034,7 +17026,7 @@ static s32 __wl_cfg80211_down(struct bcm_cfg80211 *cfg)
 #endif /* BCMSDIO || BCMDBUS */
 #endif /* PROP_TXSTATUS_VSDB */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 #endif
 
 	WL_DBG(("In\n"));
@@ -19380,7 +19372,7 @@ int wl_cfg80211_scan_stop(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev)
 	int clear_flag = 0;
 	int ret = 0;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
-	struct cfg80211_scan_info info;
+	struct cfg80211_scan_info info = {};
 #endif
 
 	WL_TRACE(("Enter\n"));
@@ -20264,7 +20256,7 @@ wl_cfg80211_ch_switch_notify(struct net_device *dev, uint16 chanspec, struct wip
 {
 	u32 freq;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 8, 0))
-	struct cfg80211_chan_def chandef;
+	struct cfg80211_chan_def chandef = {};
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 5, 0) && (LINUX_VERSION_CODE <= (3, 7, \
 	\
 	\

@@ -19757,3 +19757,5 @@ bool dhd_os_wd_timer_enabled(void *bus)
 	}
 	return dhd->wd_timer_valid;
 }
+
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
