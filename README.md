@@ -6,6 +6,12 @@ some tv box firmware for h96 max x3
 ### linux 5.4.219 kernel image from google
   git clone https://android.googlesource.com/kernel/hikey-linaro -b android-amlogic-bmeson-5.4
 
+### linux 5.10.150 kernel image from google
+  git clone https://android.googlesource.com/kernel/hikey-linaro -b android-amlogic-bmeson-5.10
+
+### linux 5.15.x kernel image from google
+  !!! NOT SUPPORT SIMPLE HDMI NOT WORK OKAY !!!
+
 ### armbian dist image
 
 ### toolchain
