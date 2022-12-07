@@ -25,6 +25,7 @@ nmcli con modify s905x3 wifi-sec.key-mgmt wpa-psk
 nmcli con modify s905x3 wifi-sec.psk "12345678"
 nmcli con up s905x3
 ```
+NOTE: this tvbox could not support 802.11ac when use channel 149~165, so please use channel 36-64
 
 ### bug fixed dtsi for wireless card if speed is slow
 
