@@ -16,3 +16,37 @@ some tv box firmware for h96 max x3
 
 ### toolchain
   gcc-arm-10.3-2021.07-x86_64-aarch64-none-elf
+
+### create hostapd use nmcli
+```
+nmcli con add type wifi ifname wlan0 con-name s905x3 autoconnect yes ssid S905X3_SSID
+nmcli con modify s905x3 802-11-wireless.mode ap 802-11-wireless.band a 802-11-wireless.channel 36 ipv4.method shared
+nmcli con modify s905x3 wifi-sec.key-mgmt wpa-psk
+nmcli con modify s905x3 wifi-sec.psk "12345678"
+nmcli con up s905x3
+```
+
+### bug fixed dtsi for wireless card if speed is slow
+
+```
+diff --git a/arch/arm64/boot/dts/amlogic/meson-g12-common.dtsi b/arch/arm64/boot/dts/amlogic/meson-g12-common.dtsi
+index 1ef0f2b..3cc89ce 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-g12-common.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-g12-common.dtsi
+@@ -2318,13 +2323,14 @@
+                                clocks = <&xtal>, <&clkc CLKID_UART0>, <&xtal>;
+                                clock-names = "xtal", "pclk", "baud";
+                                status = "disabled";
+                                fifo-size = <128>;
+                        };
+                };
+
+                sd_emmc_a: sd@ffe03000 {
+                        compatible = "amlogic,meson-axg-mmc";
+                        reg = <0x0 0xffe03000 0x0 0x800>;
+-                       interrupts = <GIC_SPI 189 IRQ_TYPE_EDGE_RISING>;
++                       interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+                        status = "disabled";
+                        clocks = <&clkc CLKID_SD_EMMC_A>,
+                                 <&clkc CLKID_SD_EMMC_A_CLK0>,
+```
